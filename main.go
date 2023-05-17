@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/evertras/bubble-table/table"
 	"github.com/nsf/termbox-go"
 )
@@ -87,13 +89,13 @@ func PrettyPrint(i interface{}) string {
 // util to row
 
 func (p JackettResult) ToRow() table.Row {
-
+	publishDate, _ := time.Parse(time.RFC3339, p.PublishDate)
 	return table.NewRow(table.RowData{
 		"Title":    p.Title,
 		"Tracker":  p.Tracker,
 		"Category": p.CategoryDesc,
-		"Date":     p.PublishDate,
-		"Size":     fmt.Sprintf("%.2f", float32(p.Size / 1024) / 1024) + "Mb",
+		"Date":     publishDate,
+		"Size":     fmt.Sprintf("%.2f", float32(p.Size/1024)/1024) + "Mb",
 		"Seeders":  p.Seeders,
 
 		// This isn't a visible column, but we can add the data here anyway for later retrieval
@@ -236,23 +238,22 @@ func NewTableModel() TableModel {
 	for _, p := range result.Results {
 		rows = append(rows, p.ToRow())
 	}
-		if err := termbox.Init(); err != nil {
-        panic(err)
-    }
-    w, _ := termbox.Size()
-    termbox.Close()
-
+	if err := termbox.Init(); err != nil {
+		panic(err)
+	}
+	w, h := termbox.Size()
+	termbox.Close()
 	return TableModel{
 		pokeTable: table.New([]table.Column{
-			table.NewColumn("Title", "Title", w-60),
+			table.NewColumn("Title", "Title", w-70),
 			table.NewColumn("Tracker", "Tracker", 10),
 			table.NewColumn("Category", "Category", 10),
-			table.NewColumn("Date", "Date", 10),
-			table.NewColumn("Size", "Size", 10),
+			table.NewColumn("Date", "Date", 20),
+			table.NewColumn("Size", "Size", 10).WithStyle(lipgloss.NewStyle().Align(lipgloss.Right)),
 			table.NewColumn("Seeders", "Seeders", 10),
 		}).WithRows(rows).
-			BorderRounded().
-			Focused(true),
+			BorderRounded().WithPageSize(h - 6).SortByDesc("Seeders").
+			Focused(true).WithBaseStyle(lipgloss.NewStyle().Align(lipgloss.Left)),
 		currentPokemonData: result.Results[0],
 	}
 }
