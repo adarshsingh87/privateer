@@ -130,7 +130,7 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m textInputModel) View() string {
 	tea.ClearScreen()
 	return fmt.Sprintf(
-		"What to priveteer today?\n\n%s\n\n%s",
+		"What to privateer today?\n\n%s\n\n%s",
 		m.textInput.View(),
 		"(esc to quit)",
 	) + "\n"
