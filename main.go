@@ -110,6 +110,7 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
+			os.Exit(1)
 			return m, tea.Quit
 		case tea.KeyEnter:
 			searchTerm = m.textInput.Value()
@@ -165,6 +166,7 @@ func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
+			os.Exit(1)
 			return m, tea.Quit
 		default:
 			return m, nil
