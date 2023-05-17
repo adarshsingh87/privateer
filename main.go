@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -77,7 +79,7 @@ type JackettResult struct {
 	PublishDate  string `json:"PublishDate"`
 	Size         int    `json:"Size"`
 	Seeders      int    `json:"Seeders"`
-	MagnetURI    string `json:"MagnetUri,omitempty"`
+	MagnetURI    string `json:"MagnetUri"`
 }
 
 // JSON pretty print
@@ -102,6 +104,27 @@ func (p JackettResult) ToRow() table.Row {
 		"MagnetURI": p.MagnetURI,
 		"Link":      p.Link,
 	})
+}
+
+//util open in app
+
+func openbrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }
 
 // text input config
@@ -226,9 +249,7 @@ func (m spinnerModel) View() string {
 type TableModel struct {
 	pokeTable table.Model
 
-	currentPokemonData JackettResult
-
-	lastSelectedEvent table.UserEventRowSelectToggled
+	// currentPokemonData JackettResult
 }
 
 func NewTableModel() TableModel {
@@ -254,7 +275,6 @@ func NewTableModel() TableModel {
 		}).WithRows(rows).
 			BorderRounded().WithPageSize(h - 6).SortByDesc("Seeders").
 			Focused(true).WithBaseStyle(lipgloss.NewStyle().Align(lipgloss.Left)),
-		currentPokemonData: result.Results[0],
 	}
 }
 
@@ -277,11 +297,16 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc", "q":
 			cmds = append(cmds, tea.Quit)
 		case "enter":
-			fmt.Println(m.currentPokemonData)
+			var selectedData map[string]interface{} = m.pokeTable.HighlightedRow().Data
+			dbByte, _ := json.Marshal(selectedData)
+			var myStruct JackettResult
+			_ = json.Unmarshal(dbByte, &myStruct)
+			if(myStruct.MagnetURI != "") {
+				openbrowser(myStruct.MagnetURI)
+			} else {
+				openbrowser(myStruct.Link)
+			}
 		}
-
-	case JackettResult:
-		m.currentPokemonData = msg
 	}
 
 	return m, tea.Batch(cmds...)
