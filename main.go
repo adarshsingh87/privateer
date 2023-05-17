@@ -125,7 +125,7 @@ func InputModel() textInputModel {
 }
 
 func (m textInputModel) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, tea.ClearScreen)
 }
 
 func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -153,7 +153,6 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m textInputModel) View() string {
-	tea.ClearScreen()
 	return fmt.Sprintf(
 		"What to privateer today?\n\n%s\n\n%s",
 		m.textInput.View(),
@@ -176,7 +175,7 @@ func spennerInitialModel() spinnerModel {
 }
 
 func (m spinnerModel) Init() tea.Cmd {
-	return tea.Batch(getResults(), m.spinner.Tick)
+	return tea.Batch(getResults(), m.spinner.Tick, tea.ClearScreen)
 }
 
 func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -184,7 +183,7 @@ func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.quitting = true
 	}
 	if m.quitting {
-		return m, tea.Quit
+		return m, tea.Batch(tea.Quit, tea.ClearScreen)
 	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -253,7 +252,7 @@ func NewTableModel() TableModel {
 }
 
 func (m TableModel) Init() tea.Cmd {
-	return nil
+	return tea.ClearScreen
 }
 
 func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
