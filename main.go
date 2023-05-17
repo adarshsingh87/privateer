@@ -88,7 +88,7 @@ type textInputModel struct {
 
 func InputModel() textInputModel {
 	ti := textinput.New()
-	ti.Placeholder = "Pikachu"
+	ti.Placeholder = "Search..."
 	ti.Focus()
 	ti.CharLimit = 156
 	ti.Width = 20
@@ -130,7 +130,7 @@ func (m textInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m textInputModel) View() string {
 	tea.ClearScreen()
 	return fmt.Sprintf(
-		"What's your favorite Pokémon?\n\n%s\n\n%s",
+		"What to priveteer today?\n\n%s\n\n%s",
 		m.textInput.View(),
 		"(esc to quit)",
 	) + "\n"
