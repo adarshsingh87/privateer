@@ -92,7 +92,7 @@ func (p JackettResult) ToRow() table.Row {
 		"Tracker":  p.Tracker,
 		"Category": p.CategoryDesc,
 		"Date":     p.PublishDate,
-		"Size":     float32(p.Size / 1024) / 1024,
+		"Size":     fmt.Sprintf("%.2f", float32(p.Size / 1024) / 1024) + "Mb",
 		"Seeders":  p.Seeders,
 
 		// This isn't a visible column, but we can add the data here anyway for later retrieval
