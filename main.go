@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/evertras/bubble-table/table"
+	"github.com/nsf/termbox-go"
 )
 
 var searchTerm string
@@ -235,10 +236,15 @@ func NewTableModel() TableModel {
 	for _, p := range result.Results {
 		rows = append(rows, p.ToRow())
 	}
+		if err := termbox.Init(); err != nil {
+        panic(err)
+    }
+    w, _ := termbox.Size()
+    termbox.Close()
 
 	return TableModel{
 		pokeTable: table.New([]table.Column{
-			table.NewColumn("Title", "Title", 13),
+			table.NewColumn("Title", "Title", w-60),
 			table.NewColumn("Tracker", "Tracker", 10),
 			table.NewColumn("Category", "Category", 10),
 			table.NewColumn("Date", "Date", 10),
