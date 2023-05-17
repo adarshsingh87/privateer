@@ -8,25 +8,25 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/evertras/bubble-table/table"
 )
 
 var searchTerm string
 var result JackettResponseReq
 
 func getResults() tea.Cmd {
-	return func () tea.Msg {
+	return func() tea.Msg {
 		var url string = "http://localhost:9117/api/v2.0/indexers/test:passed/results?apikey=m2td3d4z7xykqyb3end2gvvvydsyi1b4&Query=" + strings.ToLower(strings.Join(strings.Split(searchTerm, " "), "+")) + "&Tracker%5B%5D=1337x&Tracker%5B%5D=bitsearch&Tracker%5B%5D=eztv&Tracker%5B%5D=gamestorrents&Tracker%5B%5D=internetarchive&Tracker%5B%5D=itorrent&Tracker%5B%5D=kickasstorrents-to&Tracker%5B%5D=kickasstorrents-ws&Tracker%5B%5D=limetorrents&Tracker%5B%5D=moviesdvdr&Tracker%5B%5D=nyaasi&Tracker%5B%5D=pctorrent&Tracker%5B%5D=rutor&Tracker%5B%5D=rutracker-ru&Tracker%5B%5D=solidtorrents&Tracker%5B%5D=torrentfunk&Tracker%5B%5D=yts"
-	
+
 		resp, err := http.Get(url)
 		if err != nil {
 			log.Fatalln(err)
 		}
-	
+
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err := json.Unmarshal(body, &result); err != nil {
@@ -52,28 +52,53 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(PrettyPrint(result))
+	p := tea.NewProgram(NewTableModel())
+
+	if err := p.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	// fmt.Println(PrettyPrint(result))
 
 }
 
 type JackettResponseReq struct {
-	Results []struct {
-		Tracker      string    `json:"Tracker"`
-		CategoryDesc string    `json:"CategoryDesc"`
-		Title        string    `json:"Title"`
-		Link         string    `json:"Link"`
-		PublishDate  time.Time `json:"PublishDate"`
-		Size         int       `json:"Size"`
-		Seeders      int       `json:"Seeders"`
-		Peers        int       `json:"Peers"`
-		MagnetURI    string    `json:"MagnetUri,omitempty"`
-	} `json:"Results"`
+	Results []JackettResult `json:"Results"`
+}
+
+type JackettResult struct {
+	Tracker      string `json:"Tracker"`
+	CategoryDesc string `json:"CategoryDesc"`
+	Title        string `json:"Title"`
+	Link         string `json:"Link"`
+	PublishDate  string `json:"PublishDate"`
+	Size         int    `json:"Size"`
+	Seeders      int    `json:"Seeders"`
+	MagnetURI    string `json:"MagnetUri,omitempty"`
 }
 
 // JSON pretty print
 func PrettyPrint(i interface{}) string {
 	s, _ := json.MarshalIndent(i, "", "\t")
 	return string(s)
+}
+
+// util to row
+
+func (p JackettResult) ToRow() table.Row {
+
+	return table.NewRow(table.RowData{
+		"Title":    p.Title,
+		"Tracker":  p.Tracker,
+		"Category": p.CategoryDesc,
+		"Date":     p.PublishDate,
+		"Size":     float32(p.Size / 1024) / 1024,
+		"Seeders":  p.Seeders,
+
+		// This isn't a visible column, but we can add the data here anyway for later retrieval
+		"MagnetURI": p.MagnetURI,
+		"Link":      p.Link,
+	})
 }
 
 // text input config
@@ -155,10 +180,10 @@ func (m spinnerModel) Init() tea.Cmd {
 }
 
 func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if(len(result.Results) > 0) {
+	if len(result.Results) > 0 {
 		m.quitting = true
 	}
-	if(m.quitting) {
+	if m.quitting {
 		return m, tea.Quit
 	}
 	switch msg := msg.(type) {
@@ -192,4 +217,70 @@ func (m spinnerModel) View() string {
 		return str + "\n"
 	}
 	return str
+}
+
+// table tui
+
+type TableModel struct {
+	pokeTable table.Model
+
+	currentPokemonData JackettResult
+
+	lastSelectedEvent table.UserEventRowSelectToggled
+}
+
+func NewTableModel() TableModel {
+
+	rows := []table.Row{}
+
+	for _, p := range result.Results {
+		rows = append(rows, p.ToRow())
+	}
+
+	return TableModel{
+		pokeTable: table.New([]table.Column{
+			table.NewColumn("Title", "Title", 13),
+			table.NewColumn("Tracker", "Tracker", 10),
+			table.NewColumn("Category", "Category", 10),
+			table.NewColumn("Date", "Date", 10),
+			table.NewColumn("Size", "Size", 10),
+			table.NewColumn("Seeders", "Seeders", 10),
+		}).WithRows(rows).
+			BorderRounded().
+			Focused(true),
+		currentPokemonData: result.Results[0],
+	}
+}
+
+func (m TableModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	m.pokeTable, cmd = m.pokeTable.Update(msg)
+	cmds = append(cmds, cmd)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc", "q":
+			cmds = append(cmds, tea.Quit)
+		case "enter":
+			fmt.Println(m.currentPokemonData)
+		}
+
+	case JackettResult:
+		m.currentPokemonData = msg
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m TableModel) View() string {
+	return m.pokeTable.View()
 }
