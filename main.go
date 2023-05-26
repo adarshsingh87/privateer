@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -22,10 +23,15 @@ import (
 
 var searchTerm string
 var result JackettResponseReq
+var apiKey string
+
+type Config struct {
+	ApiKey string `json:"ApiKey"`
+}
 
 func getResults() tea.Cmd {
 	return func() tea.Msg {
-		var url string = "http://localhost:9117/api/v2.0/indexers/test:passed/results?apikey=m2td3d4z7xykqyb3end2gvvvydsyi1b4&Query=" + strings.ToLower(strings.Join(strings.Split(searchTerm, " "), "+")) + "&Tracker%5B%5D=1337x&Tracker%5B%5D=bitsearch&Tracker%5B%5D=eztv&Tracker%5B%5D=gamestorrents&Tracker%5B%5D=internetarchive&Tracker%5B%5D=itorrent&Tracker%5B%5D=kickasstorrents-to&Tracker%5B%5D=kickasstorrents-ws&Tracker%5B%5D=limetorrents&Tracker%5B%5D=moviesdvdr&Tracker%5B%5D=nyaasi&Tracker%5B%5D=pctorrent&Tracker%5B%5D=rutor&Tracker%5B%5D=rutracker-ru&Tracker%5B%5D=solidtorrents&Tracker%5B%5D=torrentfunk&Tracker%5B%5D=yts"
+		var url string = "http://localhost:9117/api/v2.0/indexers/test:passed/results?apikey=" + apiKey + "&Query=" + strings.ToLower(strings.Join(strings.Split(searchTerm, " "), "+")) + "&Tracker%5B%5D=1337x&Tracker%5B%5D=bitsearch&Tracker%5B%5D=eztv&Tracker%5B%5D=gamestorrents&Tracker%5B%5D=internetarchive&Tracker%5B%5D=itorrent&Tracker%5B%5D=kickasstorrents-to&Tracker%5B%5D=kickasstorrents-ws&Tracker%5B%5D=limetorrents&Tracker%5B%5D=moviesdvdr&Tracker%5B%5D=nyaasi&Tracker%5B%5D=pctorrent&Tracker%5B%5D=rutor&Tracker%5B%5D=rutracker-ru&Tracker%5B%5D=solidtorrents&Tracker%5B%5D=torrentfunk&Tracker%5B%5D=yts"
 
 		resp, err := http.Get(url)
 		if err != nil {
@@ -42,6 +48,28 @@ func getResults() tea.Cmd {
 }
 
 func main() {
+	appSettings, err := os.Open("privateer.json")
+
+	if err != nil {
+		apiInput := tea.NewProgram(ApiInputModel())
+		if _, err := apiInput.Run(); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		var settings Config
+
+		byteValue, _ := ioutil.ReadAll(appSettings)
+		json.Unmarshal(byteValue, &settings)
+		apiKey = settings.ApiKey
+	}
+
+	if apiKey == "" {
+		apiInput := tea.NewProgram(ApiInputModel())
+		if _, err := apiInput.Run(); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	searchTerm = strings.Join(os.Args[1:], "+")
 
 	if searchTerm == "" || searchTerm == "null" {
@@ -142,7 +170,7 @@ func InputModel() textInputModel {
 	ti.Placeholder = "Search..."
 	ti.Focus()
 	ti.CharLimit = 156
-	ti.Width = 20
+	ti.Width = 100
 
 	return textInputModel{
 		textInput: ti,
@@ -301,7 +329,7 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			dbByte, _ := json.Marshal(selectedData)
 			var myStruct JackettResult
 			_ = json.Unmarshal(dbByte, &myStruct)
-			if(myStruct.MagnetURI != "") {
+			if myStruct.MagnetURI != "" {
 				openbrowser(myStruct.MagnetURI)
 			} else {
 				openbrowser(myStruct.Link)
@@ -314,4 +342,66 @@ func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m TableModel) View() string {
 	return m.pokeTable.View()
+}
+
+// api key input
+
+type apiInputModel struct {
+	textInput textinput.Model
+	err       error
+}
+
+func ApiInputModel() apiInputModel {
+	ti := textinput.New()
+	ti.Placeholder = "Enter Jackett Api key..."
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 100
+
+	return apiInputModel{
+		textInput: ti,
+		err:       nil,
+	}
+}
+
+func (m apiInputModel) Init() tea.Cmd {
+	return tea.Batch(textinput.Blink, tea.ClearScreen)
+}
+
+func (m apiInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			os.Exit(1)
+			return m, tea.Quit
+		case tea.KeyEnter:
+			data := Config{
+				ApiKey: m.textInput.Value(),
+			}
+			file, _ := json.Marshal(data)
+
+			ioutil.WriteFile("privateer.json", file, 0644)
+			apiKey = m.textInput.Value()
+			return m, tea.Quit
+		}
+
+	// We handle errors just like any other message
+	case errMsg:
+		m.err = msg
+		return m, nil
+	}
+
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m apiInputModel) View() string {
+	return fmt.Sprintf(
+		"Enter Jackett Api key?\n\n%s\n\n%s",
+		m.textInput.View(),
+		"(esc to quit)",
+	) + "\n"
 }
